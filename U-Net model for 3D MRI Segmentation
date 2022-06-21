@@ -1,44 +1,67 @@
-def Convolution(input_tensor,filters):
-    
-    x = Conv2D(filters=filters,kernel_size=(3, 3),padding = 'same',strides=(1, 1))(input_tensor)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x) 
-    return x
+def build_model(input_layer, start_neurons):
+    # 128 -> 64
+    conv1 = Conv2D(start_neurons * 1, (3, 3), activation="relu", padding="same")(input_layer)
+    conv1 = Conv2D(start_neurons * 1, (3, 3), activation="relu", padding="same")(conv1)
+    pool1 = MaxPooling2D((2, 2))(conv1)
+    pool1 = Dropout(0.25)(pool1)
 
-def model(input_shape):
+    # 64 -> 32
+    conv2 = Conv2D(start_neurons * 2, (3, 3), activation="relu", padding="same")(pool1)
+    conv2 = Conv2D(start_neurons * 2, (3, 3), activation="relu", padding="same")(conv2)
+    pool2 = MaxPooling2D((2, 2))(conv2)
+    pool2 = Dropout(0.5)(pool2)
+
+    # 32 -> 16
+    conv3 = Conv2D(start_neurons * 4, (3, 3), activation="relu", padding="same")(pool2)
+    conv3 = Conv2D(start_neurons * 4, (3, 3), activation="relu", padding="same")(conv3)
+    pool3 = MaxPooling2D((2, 2))(conv3)
+    pool3 = Dropout(0.5)(pool3)
+    # 16 -> 8
+    conv4 = Conv2D(start_neurons * 8, (3, 3), activation="relu", padding="same")(pool3)
+    conv4 = Conv2D(start_neurons * 8, (3, 3), activation="relu", padding="same")(conv4)
+    pool4 = MaxPooling2D((2, 2))(conv4)
+    pool4 = Dropout(0.5)(pool4)
+
+    # Middle
+    convm = Conv2D(start_neurons * 16, (3, 3), activation="relu", padding="same")(pool4)
+    convm = Conv2D(start_neurons * 16, (3, 3), activation="relu", padding="same")(convm)
+
+    # 8 -> 16
+    deconv4 = Conv2DTranspose(start_neurons * 8, (3, 3), strides=(2, 2), padding="same")(convm)
+    uconv4 = concatenate([deconv4, conv4])
+    uconv4 = Dropout(0.5)(uconv4)
+    uconv4 = Conv2D(start_neurons * 8, (3, 3), activation="relu", padding="same")(uconv4)
+    uconv4 = Conv2D(start_neurons * 8, (3, 3), activation="relu", padding="same")(uconv4)
+    # 16 -> 32
+    deconv3 = Conv2DTranspose(start_neurons * 4, (3, 3), strides=(2, 2), padding="same")(uconv4)
+    uconv3 = concatenate([deconv3, conv3])
+    uconv3 = Dropout(0.5)(uconv3)
+    uconv3 = Conv2D(start_neurons * 4, (3, 3), activation="relu", padding="same")(uconv3)
+    uconv3 = Conv2D(start_neurons * 4, (3, 3), activation="relu", padding="same")(uconv3)
+
+    # 32 -> 64
+    deconv2 = Conv2DTranspose(start_neurons * 2, (3, 3), strides=(2, 2), padding="same")(uconv3)
+    uconv2 = concatenate([deconv2, conv2])
+    uconv2 = Dropout(0.5)(uconv2)
+    uconv2 = Conv2D(start_neurons * 2, (3, 3), activation="relu", padding="same")(uconv2)
+    uconv2 = Conv2D(start_neurons * 2, (3, 3), activation="relu", padding="same")(uconv2)
+    # 64 -> 128
+    deconv1 = Conv2DTranspose(start_neurons * 1, (3, 3), strides=(2, 2), padding="same")(uconv2)
+    uconv1 = concatenate([deconv1, conv1])
+    uconv1 = Dropout(0.5)(uconv1)
+    uconv1 = Conv2D(start_neurons * 1, (3, 3), activation="relu", padding="same")(uconv1)
+    uconv1 = Conv2D(start_neurons * 1, (3, 3), activation="relu", padding="same")(uconv1)
+
+    #uconv1 = Dropout(0.5)(uconv1)
+    output_layer = Conv2D(1, (1,1), padding="same", activation="sigmoid")(uconv1)
     
-    inputs = Input((input_shape))
-    
-    conv_1 = Convolution(inputs,32)
-    maxp_1 = MaxPooling2D(pool_size = (2, 2), strides = (2, 2), padding = 'same') (conv_1)
-    
-    conv_2 = Convolution(maxp_1,64)
-    maxp_2 = MaxPooling2D(pool_size = (2, 2), strides = (2, 2), padding = 'same') (conv_2)
-    
-    conv_3 = Convolution(maxp_2,128)
-    maxp_3 = MaxPooling2D(pool_size = (2, 2), strides = (2, 2), padding = 'same') (conv_3)
-    
-    conv_4 = Convolution(maxp_3,256)
-    maxp_4 = MaxPooling2D(pool_size = (2, 2), strides = (2, 2), padding = 'same') (conv_4)
-    conv_5 = Convolution(maxp_4,512)
-    upsample_6 = UpSampling2D((2, 2)) (conv_5)
-    
-    conv_6 = Convolution(upsample_6,256)
-    upsample_7 = UpSampling2D((2, 2)) (conv_6)
-    
-    upsample_7 = concatenate([upsample_7, conv_3])
-    
-    conv_7 = Convolution(upsample_7,128)
-    upsample_8 = UpSampling2D((2, 2)) (conv_7)
-    
-    conv_8 = Convolution(upsample_8,64)
-    upsample_9 = UpSampling2D((2, 2)) (conv_8)
-    
-    upsample_9 = concatenate([upsample_9, conv_1])
-    
-    conv_9 = Convolution(upsample_9,32)
-    outputs = Conv2D(1, (1, 1), activation='sigmoid') (conv_9)
-    
-    model = Model(inputs=[inputs], outputs=[outputs]) 
-    
-    return model
+    return output_layer
+
+input_layer = Input((img_size, img_size, 1))
+output_layer = build_model(input_layer, 16)
+
+model = Model(input_layer, output_layer)
+#model.compile(loss = "binary_crossentropy", optimizer = "adam", metrics = ["accuracy"])
+
+Adam=optimizers.Adam(lr=0.001)
+model.compile(optimizer=Adam, loss='binary_crossentropy', metrics=['accuracy',dice_coef,precision,sensitivity,specificity])
