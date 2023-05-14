@@ -21,6 +21,8 @@ for layer in inception.layers:
 x = Flatten()(inception.output)
 prediction = Dense(CLASS, activation='softmax')(x)
 model = Model(inputs=inception.input, outputs=prediction)
+
+
 adam = keras.optimizers.Adam(lr = 0.001)
 model.compile(
   loss='categorical_crossentropy',
